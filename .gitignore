@@ -2,4 +2,6 @@ basicTrialFramework.ipynb
 preliminaryResultsTrialset.ipynb
 testingMultiprocessing.ipynb
 validation.ipynb
-
+.ipynb_checkpoints
+dementiaAndCVQuintileThresholds.csv
+testThresholds.csv
