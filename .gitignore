@@ -1,3 +1,5 @@
+.DS_Store
+DATA/
 basicTrialFramework.ipynb
 preliminaryResultsTrialset.ipynb
 testingMultiprocessing.ipynb
