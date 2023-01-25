@@ -11,5 +11,4 @@
 				    with visualization, statistical calculations etc
 - preliminaryTrials100CvAllDementiaAll: primarily looks at convergence of effect size as a function of number of trials
 - standardDeviationGCP: finds the standard deviation of GCP in a large population
-- validation: aims to reproduce results shown in primary MicroSim publication
--  
+- validation: aims to reproduce results shown in primary MicroSim publication  
