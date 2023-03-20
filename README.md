@@ -4,6 +4,7 @@
                  using a large usual care population and a large sprint treatment population
 - absEffectSizeRegression: does the regression for the absEffectSize notebook
 - cognitiveImpairmentOutcomes: demonstrates the implementation of a cognitive impairment outcome in trials
+- convergenceOfTrialsetResults: checks for convergence of trialset effect size as a function of number of trials (so that we know when to stop)
 - cvDementiaQuantiles: calculates quantiles of cardiovascular and dementia risks in a large usual care population
 - parallelTrialset: demonstrates the use of TrialsetSerial and TrialsetParallel classes
 - pyproject.toml (and poetry.lock): used to setup poetry with MicroSim Jupyter notebooks, this poetry installation
