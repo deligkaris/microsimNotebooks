@@ -13,3 +13,15 @@
 - preliminaryTrials100CvAllDementiaAll: primarily looks at convergence of effect size as a function of number of trials
 - standardDeviationGCP: finds the standard deviation of GCP in a large population
 - validation: aims to reproduce results shown in primary MicroSim publication  
+
+# Making a Jupyter Notebook Microsim Kernel
+
+The pyproject.toml file in this repository includes packages that are useful for analyzing Microsim simulations in an interactive way using 
+Jupyter Notebooks.
+Some of the notebooks included in this repository require data in order to run.
+
+- Clone this github repository in the hard drive
+- poetry install
+- poetry run python -m ipykernel install --user --name microsimKernel
+- Change the kernel on the Jupyter Notebook to microsimKernel
+
