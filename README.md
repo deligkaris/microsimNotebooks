@@ -12,6 +12,8 @@
 				    with visualization, statistical calculations etc
 - preliminaryTrials100CvAllDementiaAll: primarily looks at convergence of effect size as a function of number of trials
 - standardDeviationGCP: finds the standard deviation of GCP in a large population
+- testGcpStrokeModel: using model development results from the original publication, this notebook validates the implementation
+                                    of the GCP stroke model on microsim
 - validation: aims to reproduce results shown in primary MicroSim publication  
 
 # Making a Jupyter Notebook Microsim Kernel
