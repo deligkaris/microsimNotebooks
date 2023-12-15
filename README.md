@@ -15,6 +15,8 @@
 - testGcpStrokeModel: using model development results from the original publication, this notebook validates the implementation
                                     of the GCP stroke model on microsim
 - validation: aims to reproduce results shown in primary MicroSim publication  
+- DataframeVsObjects and DataframeVsObjectsDefinitions: includes relative performance tests for the use of the alive dataframe or 
+                               the collection of person objects (population)
 
 # Making a Jupyter Notebook Microsim Kernel
 
