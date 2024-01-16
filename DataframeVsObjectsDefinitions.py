@@ -159,7 +159,24 @@ def advanceRiskFactorsOb2(x, models, rng=None):
 
     return x
 
+def advanceRiskFactorsObP3(x):
 
+    rngStream = np.random.default_rng()
+    modelRepo = CohortRiskModelRepository()
+    rfs = ['sbp', 'dbp', 'a1c', 'hdl', 'ldl', 'trig', 'totChol', 'bmi', 'anyPhysicalActivity', 'afib', 'waist', 'alcoholPerWeek', 'creatinine']
+    for rf in rfs:
+        model = modelRepo.get_model(rf)
+        list(map( lambda y: setattr(y, rf, getattr(y, rf).append(model.estimate_next_risk(y, rng=rng))), x))    
+    return x
+
+
+def advance_year_alive(x, riskMR, outcomeMR, qalyAS, rng):
+    return x.advance_year(riskMR, outcomeMR, qalyAS, rng) if not x.is_dead() else x
+def update_person_mp(x):
+    rngStream = np.random.default_rng()
+    for i in range(50):
+        list(map( lambda y: advance_year_alive(y, x._risk_model_repository, x._outcome_model_repository, x._qaly_assignment_strategy ,rngStream), x._people))
+    return x
 
 
 

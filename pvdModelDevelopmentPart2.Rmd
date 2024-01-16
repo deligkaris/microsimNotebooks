@@ -1,0 +1,71 @@
+---
+title: "pvdModelDevelopmentPart2"
+output: html_document
+date: "2024-01-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/NOTEBOOKS/DATA')
+```
+
+Load data and libraries
+
+```{r, warning=FALSE}
+library(lme4)
+library(arm)
+library(rstan)
+library(rstanarm)
+
+#with Rmarkdown notebooks this does not work outside this chunk
+#dataDir<-"/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/NOTEBOOKS/DATA"
+#setwd(dataDir)
+dataFile<-"pvdModelDevelopment.csv"
+data<-read.csv(dataFile)
+head(data)
+```
+
+Create the categorical variables.
+
+```{r}
+data$gender.f <- factor(data$gender)
+data$smokingStatus0.f <- factor(data$smokingStatus0)
+data$raceEthnicity0.f <- factor(data$raceEthnicity0)
+```
+
+Make sure all categorical variables are consistent with microsim
+
+Male is 1, female is 2.
+
+```{r}
+str(data$gender.f)
+```
+
+Smoking status: never=0, former=1, current=2
+Smoking status 0: never=0, former or current=1
+
+```{r}
+str(data$smokingStatus0.f)
+```
+
+raceEthnicity: mexican american=1, other hispanic=2, non hispanic white=3, non hispanic black=4, other=5
+raceEthnicity0: mexican american or hispanic=1, non hispanic white=3, non hispanic black=4, other=5
+
+```{r}
+data$raceEthnicity0.f <- relevel(data$raceEthnicity0.f, ref="3")
+str(data$raceEthnicity0.f)
+```
+
+The glm model.
+
+```{r}
+#model <- 
+```
+
+The stan glm model.
+
+```{r}
+model <- stan_glm(pvd1Binary ~ age0S + pulsePressure0S + tchdlRatio0 + gender.f + smokingStatus0.f + raceEthnicity0.f, refresh=0, data=data, family=binomial(link=logit))
+print(summary(model), digits=2)
+```
+
