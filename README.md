@@ -18,6 +18,7 @@
 - DataframeVsObjects and DataframeVsObjectsDefinitions: includes relative performance tests for the use of the alive dataframe or 
                                the collection of person objects (population). Some definitions need to be stored to a separate python file
                                (the use of the multiprocessing module in the jupyter notebook requires this).
+- population-distributions-XX-NHANES: a series of notebooks to model NHANES data as Gaussians and validate a population obtained from the Gaussians
 
 # Making a Jupyter Notebook Microsim Kernel
 
