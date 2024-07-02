@@ -6,6 +6,7 @@
 - cognitiveImpairmentOutcomes: demonstrates the implementation of a cognitive impairment outcome in trials
 - convergenceOfTrialsetResults: checks for convergence of trialset effect size as a function of number of trials (so that we know when to stop)
 - cvDementiaQuantiles: calculates quantiles of cardiovascular and dementia risks in a large usual care population
+- initialization-models-XX: develop and validate person object models (eg waist for Kaiser person objects)
 - parallelTrialset: demonstrates the use of TrialsetSerial and TrialsetParallel classes
 - pyproject.toml (and poetry.lock): used to setup poetry with MicroSim Jupyter notebooks, this poetry installation
 				    includes additional python modules (compared to MicroSim) that help
