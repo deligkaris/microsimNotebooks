@@ -1,0 +1,284 @@
+---
+title: "Microsim Development of Person Initialization Models"
+output: html_document
+date: "2024-06-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(mlogit)
+library(ordinal)
+library(MASS)
+library(brant)
+setwd("/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/NOTEBOOKS/DATA")
+df <- read.csv("nhanesDf.csv",header=TRUE)
+```
+## Goal
+
+The goal of this notebook is to develop models that can be used by Microsim
+
+### NHANES dataframe
+
+The NHANES dataframe has been loaded to memory and we now need to specify which columns are categorical (unordered by default) and
+which ones are categorical and ordered.
+In addition, during the development of the waist model, I noticed that waist was dependent on a non-linear bmi term so I am
+calculating bmi*bmi here as well.
+
+```{r}
+df$education <- ordered(df$education)
+df$gender <- factor(df$gender)
+df$smokingStatus <- factor(df$smokingStatus)
+df$anyPhysicalActivity <- factor(df$anyPhysicalActivity)
+df$alcoholPerWeek <- ordered(df$alcoholPerWeek)
+df$statin <- factor(df$statin)
+df$raceEthnicity <- factor(df$raceEthnicity)
+#bmi2 is bmi^2
+df$bmi2 <- df$bmi*df$bmi
+
+#print(levels(df$alcoholPerWeek))
+names(df)
+
+```
+
+
+### Pre-processing
+
+Let's set the year and sample from the NHANES dataframe.
+
+```{r}
+dfAllYears <- data.frame()
+popSizePerYear <- 50000
+yearI <- 1999
+yearF <- 2017
+for (iYear in yearI:yearF) {
+  dfYear <- df[df$year==iYear,]
+  if (nrow(dfYear)>0) {
+    dfYear <- dfYear[sample(1:nrow(dfYear), popSizePerYear, replace=TRUE, prob=dfYear$WTINT2YR), ]
+    dfAllYears <- rbind(dfAllYears, dfYear)
+  }
+} 
+df <- dfAllYears
+```
+
+### Waist model
+
+NHANES has weights included for the sample. Let's get a feeling for how much difference sampling makes in terms of
+the waist distribution.
+Means and standard deviations.
+
+```{r}
+#c(mean(df$waist), mean(sample(df$waist, popSize, replace=TRUE, prob=df$WTINT2YR)))
+#c(sd(df$waist), sd(sample(df$waist, popSize, replace=TRUE, prob=df$WTINT2YR)))
+dim(df)
+```
+Waist distribution.
+
+```{r}
+ggplot(df, aes(x = waist, y=after_stat(density))) + geom_histogram() +
+  ggtitle("Waist distribution with sampling from NHANES 1999-2017")
+```
+Plot dependence of waist as a function of each continuous covariate.
+```{r}
+for (cov in c("age","sbp","dbp", "a1c", "hdl", "ldl", "trig", "totChol", "bmi", "bmi2", "creatinine")) {
+  plot<-ggplot(df[0:5000,], aes(y=waist, x=get(cov), color=WTINT2YR)) + 
+    geom_point() +
+    #xlim(50, 250) +
+    #ylim(50, 250) +
+    ggtitle(paste0("Waist in NHANES vs ", cov))
+  print(plot)
+}
+```
+Let's fit a linear model using the NHANES data.
+
+```{r}
+waistModel <- lm(waist ~ raceEthnicity + education + gender + smokingStatus + age + sbp + dbp + a1c + hdl + 
+                   ldl + trig + totChol + bmi + anyPhysicalActivity + 
+                   alcoholPerWeek + creatinine + statin + antiHypertensiveCount, 
+                 data=df,)
+                 #weights=df$WTINT2YR)
+summary(waistModel)
+```
+Results showed three dominant factors: gender, age, bmi.
+Let's fit a linear model using only those variables.
+By including only a linear bmi term, the residuals clearly show to follow a trend and the addition of the bmi*bmi term
+improves the results significantly.
+I tried incorporating interactions but nothing else was found to make a significant difference.
+
+```{r}
+waistModel <- lm(waist ~ gender + age + bmi + bmi2, 
+                 data=df, )
+                 #weights=df$WTINT2YR)
+summary(waistModel)
+```
+The model predicts waist fairly well.
+One approach for taking care of the overstimations at large waists is to set a cap in the simulation (which we already do I think).
+
+```{r}
+waistMax <- max(df$waist)
+df$waistPredicted <- predict(waistModel, data=df)
+#df$waistPredicted <- pmin(df$waistPredicted, waistMax)
+ggplot(df, aes(x=waist, y=waistPredicted, color=WTINT2YR)) + 
+  geom_point() +
+  xlim(50, 250) +
+  ylim(50, 250) +
+  ggtitle("Predicted waist vs waist in NHANES")
+```
+Residuals seem to be well normally distributed.
+```{r}
+df$waistResiduals <- waistModel$residuals
+#df$waistResiduals <- df$waist - df$waistPredicted
+ggplot(df, aes(x = waistResiduals, y=after_stat(density))) + geom_histogram() +
+  ggtitle("Waist residual distribution.")
+```
+There is a small trend evident in this plot of residuals, much improved though compared to the model without the non-linear bmi term.
+```{r}
+df$waistResiduals <- waistModel$residuals
+#df$waistResiduals <- df$waist - df$waistPredicted
+ggplot(df, aes(x = waistPredicted, y=waistResiduals, color=bmi)) + geom_point()
+  ggtitle("Waist residual distribution.")
+```
+Add to our expected waist prediction a draw from the normal distribution 
+N(mean of residuals, sd of residuals).
+Plot the three distributions on the same plot.
+
+```{r}
+nPoints <- nrow(df)
+residualsMean <- mean(waistModel$residuals)
+residualsSd <- summary(waistModel)$sigma
+draws <- rnorm(n=nPoints, mean=residualsMean, sd=residualsSd)
+df$draws <- draws
+df$waistPredictedWithDraws <- df$waistPredicted + df$draws
+dfLong <- data.frame(values = c(df$waist, df$waistPredicted, df$waistPredictedWithDraws), 
+                     group = c(rep("waist", nPoints), rep("waistPredicted", nPoints), rep("waistPredictedWithDraws", nPoints)))
+
+ggplot(dfLong, aes(x = values, y=after_stat(density), fill = group)) + 
+  geom_histogram(alpha = 0.5) +
+  xlim(50, 150)
+```
+## Education model
+
+```{r}
+for (cov in c("sbp", "dbp", "age",  "a1c", "hdl", "ldl",  "trig", "totChol", "bmi", "waist", "creatinine" )) {
+  plot<-ggplot(df, aes(x=education, y=get(cov))) + 
+    geom_violin() + 
+    geom_boxplot(width=0.1, fill="white") +
+    ylab(cov)
+    #ggtitle(paste0())
+  print(plot)
+}
+```
+
+```{r}
+for (cov in c("raceEthnicity", "gender", "smokingStatus", "anyPhysicalActivity", "alcoholPerWeek", "statin", "antiHypertensiveCount")) {
+  plot<-ggplot(df, aes(x=education, fill=get(cov))) + geom_bar(position="dodge") 
+  print(plot)
+}
+```
+
+
+Fit an ordered logistic model for education.
+
+```{r}
+educationModel <- polr(education ~ waist + raceEthnicity + gender + smokingStatus + age + 
+                           sbp + dbp + a1c + hdl + ldl + trig + totChol + bmi + anyPhysicalActivity + 
+                           alcoholPerWeek + creatinine + statin + antiHypertensiveCount, data=df, Hess=TRUE)
+summary(educationModel)
+```
+The dominant factors seem to be race/ethnicity, smokingStatus, and sbp or age or alcoholperweek.
+```{r}
+educationModel <- polr(education ~ raceEthnicity + smokingStatus + age , data=df, Hess=TRUE, method="logistic")
+summary(educationModel)
+```
+
+```{r}
+brant(educationModel)
+```
+```{r}
+#test <- predict(educationModel, df, type="p")
+df$educationPredicted <- ordered(predict(educationModel, df, type="class"))
+
+isCorrectEducation <- function(row) {
+  education <- row["education"]
+  educationPredicted <- row["educationPredicted"]
+  if ( education == educationPredicted) {
+    return(1)
+  }
+  else {
+    return(0)
+  }
+}
+
+df$correctEducation <- sapply(1:nrow(df), function(i) isCorrectEducation(df[i,]))
+#df$educationPredicted <- as.numeric(df$educationPredicted) + 1
+df$educationDifference <- as.numeric(df$education) - as.numeric(df$educationPredicted)
+percentWithin1 <- (nrow(df[ abs(df$educationDifference)==1 ,]) + nrow( df[ df$educationDifference ==0, ]) ) / nrow(df)
+c(mean(df$correctEducation), mean(df$educationDifference), percentWithin1)
+```
+
+```{r}
+ggplot(df, aes(x = educationDifference, y=after_stat(density))) + geom_histogram() +
+  ggtitle("Education level difference distribution.")
+```
+## Alcohol model
+
+```{r}
+alcoholModel <- polr(alcoholPerWeek ~ waist + education + raceEthnicity + gender + smokingStatus + age + 
+                           sbp + dbp + a1c + hdl + ldl + trig + totChol + bmi + anyPhysicalActivity + 
+                            creatinine + statin + antiHypertensiveCount, data=df, Hess=TRUE)
+summary(alcoholModel)
+```
+```{r}
+df$alcoholPredicted <- ordered(predict(alcoholModel, df, type="class"))
+
+isCorrectAlcohol <- function(row) {
+  alcohol <- row["alcoholPerWeek"]
+  alcoholPredicted <- row["alcoholPredicted"]
+  if ( alcohol == alcoholPredicted) {
+    return(1)
+  }
+  else {
+    return(0)
+  }
+}
+
+df$correctAlcohol <- sapply(1:nrow(df), function(i) isCorrectAlcohol(df[i,]))
+df$alcoholDifference <- as.numeric(df$alcoholPerWeek) - as.numeric(df$alcoholPredicted)
+percentWithin1 <- (nrow(df[ abs(df$alcoholDifference)==1 ,]) + nrow( df[ df$alcoholDifference ==0, ]) ) / nrow(df)
+c(mean(df$correctAlcohol), mean(df$alcoholDifference), percentWithin1)
+```
+
+```{r}
+alcoholModel <- polr(alcoholPerWeek ~ gender + smokingStatus + age, data=df, Hess=TRUE)
+summary(alcoholModel)
+```
+
+```{r}
+brant(alcoholModel)
+```
+
+```{r}
+df$alcoholPredicted <- ordered(predict(alcoholModel, df, type="class"))
+
+isCorrectAlcohol <- function(row) {
+  alcohol <- row["alcoholPerWeek"]
+  alcoholPredicted <- row["alcoholPredicted"]
+  if ( alcohol == alcoholPredicted) {
+    return(1)
+  }
+  else {
+    return(0)
+  }
+}
+
+df$correctAlcohol <- sapply(1:nrow(df), function(i) isCorrectAlcohol(df[i,]))
+df$alcoholDifference <- as.numeric(df$alcoholPerWeek) - as.numeric(df$alcoholPredicted)
+percentWithin1 <- (nrow(df[ abs(df$alcoholDifference)==1 ,]) + nrow( df[ df$alcoholDifference ==0, ]) ) / nrow(df)
+c(mean(df$correctAlcohol), mean(df$alcoholDifference), percentWithin1)
+```
+```{r}
+ggplot(df, aes(x = alcoholDifference, y=after_stat(density))) + geom_histogram() +
+  ggtitle("Alcohol level difference distribution.")
+```
+
+
