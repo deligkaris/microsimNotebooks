@@ -280,5 +280,43 @@ c(mean(df$correctAlcohol), mean(df$alcoholDifference), percentWithin1)
 ggplot(df, aes(x = alcoholDifference, y=after_stat(density))) + geom_histogram() +
   ggtitle("Alcohol level difference distribution.")
 ```
+Now, I realized that the data in the original NHANES df are more continuous than categorical so I want to try model
+that alcohol data using a lm model and not an ordered logistic model.
 
+Alcohol continuous data distribution.
 
+```{r}
+ggplot(df, aes(x = alcoholPerWeekCon, y=after_stat(density))) + geom_histogram() +
+  ggtitle("AlcoholPerWeekCon distribution with sampling from NHANES 1999-2017")
+```
+Fit a lm model to all covariates.
+
+```{r}
+alcoholConModel <- lm(alcoholPerWeekCon ~ raceEthnicity + education + gender + smokingStatus + age + sbp + dbp + a1c + hdl + 
+                   ldl + trig + totChol + bmi + anyPhysicalActivity + 
+                   waist + creatinine + statin + antiHypertensiveCount, 
+                 data=df,)
+                 #weights=df$WTINT2YR)
+summary(alcoholConModel)
+```
+Fit a constrained model.
+```{r}
+alcoholConModel <- lm(alcoholPerWeekCon ~ raceEthnicity + education + gender + smokingStatus + age, 
+                 data=df,)
+                 #weights=df$WTINT2YR)
+summary(alcoholConModel)
+```
+Visualize predictions against training data. Agreement is terrible.
+But maybe once I categorize these predictions agreement will be better. But then my ordered logistic model is working fine.
+```{r}
+df$alcoholPerWeekConPredicted <- predict(alcoholConModel, data=df)
+ggplot(df, aes(x=alcoholPerWeekCon, y=alcoholPerWeekConPredicted, color=WTINT2YR)) + 
+  geom_point() +
+  ggtitle("Predicted alcoholPerWeek vs alcoholPerWeek in NHANES")
+```
+
+```{r}
+df$alcoholPerWeekConResiduals <- alcoholConModel$residuals
+ggplot(df, aes(x = alcoholPerWeekConResiduals, y=after_stat(density))) + geom_histogram() +
+  ggtitle("AlcoholPerWeek residual distribution.")
+```
