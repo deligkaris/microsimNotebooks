@@ -1,6 +1,8 @@
 ---
 title: "Kaiser Stroke and Dementia Validation"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 date: "2024-08-09"
 ---
 
@@ -67,13 +69,105 @@ mri <- append(oranges, values=greens[5], after=1)
 palette <- c(ct, mri)
 survival_object <- Surv(time = df$time, event = df$event)
 fit <- survfit(survival_object ~ scdGroup, data=df)
+fitLabels <- c("CT NO ", "CT UNKNOWN", "CT MILD", "CT MODERATE", "CT SEVERE",
+                         "MRI NO ", "MRI UNKNOWN", "MRI MILD", "MRI MODERATE", "MRI SEVERE")
 ggsurvplot(fit, 
            xlab="time [years]", ylab="dementia-free probability", 
-           legend.labs=c("CT NO ", "CT UNKNOWN", "CT MILD", "CT MODERATE", "CT SEVERE",
-                         "MRI NO ", "MRI UNKNOWN", "MRI MILD", "MRI MODERATE", "MRI SEVERE"),
-           legend=c(0.15, 0.5),
+           legend.labs=fitLabels,
+           legend=c(0.15, 0.38),
            palette=palette,
-           break.time.by=1)$plot +
-           ylim(c(0.75,1.))
+           break.time.by=1,
+           break.y.by=0.1,
+           ylim=c(0.4,1))$plot 
+```
+```{r}
+library(dplyr)
+library(stringr)
+
+fitdf <- data.frame(time = summary(fit)$time, surv = summary(fit)$surv, strata = summary(fit)$strata)
+fitdf$severity <- as.character(fitdf$strata)
+fitdf <- fitdf |> 
+          mutate(
+            severity = str_replace_all(severity, "scdGroup=0", "CTNo"),
+            severity = str_replace_all(severity, "scdGroup=1", "CTNonspecified"),
+            severity = str_replace_all(severity, "scdGroup=2", "CTMild"),
+            severity = str_replace_all(severity, "scdGroup=3", "CTModerate"),
+            severity = str_replace_all(severity, "scdGroup=4", "CTSevere"),
+            severity = str_replace_all(severity, "scdGroup=5", "MRNo"),
+            severity = str_replace_all(severity, "scdGroup=6", "MRNonspecified"),
+            severity = str_replace_all(severity, "scdGroup=7", "MRMild"),
+            severity = str_replace_all(severity, "scdGroup=8", "MRModerate"),
+            severity = str_replace_all(severity, "scdGroup=9", "MRSevere"),
+          ) |>
+        mutate(probability = surv) |>
+        select(time, probability, severity)
+head(fitdf)
+```
+
+
+
+
+```{r}
+library(tidyr)
+library(dplyr)
+setwd("/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/NOTEBOOKS/DATA")
+rdf <- read.csv("kaiserDementiaReference.csv",header=FALSE)
+colNames <- rdf$V1
+rdf <- data.frame(rdf |> select("V2":"V11") |> t())
+names(rdf) <- colNames
+rdf$x <- rdf$x / 12.
+
+rdf <- rdf |> pivot_longer(cols=!x, names_to="severity", values_to="probability")
+rdf
+
+#fitLabels <- c("CTNo ", "CTNonspecified", "CTMild", "CTModerate", "CTSevere",
+#                         "MRNo ", "MRNonspecified", "MRMild", "MRModerate", "MRSevere")
+#fitLabels <- fitLabels[c(3, 4, 1, 2, 5, 8, 9, 6, 7, 10)]
+#paletteN <- palette[c(3, 4, 1, 2, 5, 8, 9, 6, 7, 10)]
+
+ggplot(data=rdf) +
+  aes(x=factor(x), y=probability, color=severity) +
+  geom_point() +
+  scale_x_discrete() +
+  scale_color_manual(values = paletteN) + #, labels=fitLabels) +
+  theme_bw()
+
+```
+
+```{r}
+setwd("/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/NOTEBOOKS/DATA")
+df <- read.csv("kaiserDementiaValidation.csv",header=TRUE)
+blues <- brewer.pal(4, "Blues")
+oranges <- brewer.pal(4, "Oranges")
+greens <- brewer.pal(5, "Greens")
+ct <- append(blues, values=greens[3], after=1)
+mri <- append(oranges, values=greens[5], after=1)
+palette <- c(ct, mri)
+survival_object <- Surv(time = df$time, event = df$event)
+fit <- survfit(survival_object ~ scdGroup, data=df)
+fitLabels <- c("CT NO ", "CT UNKNOWN", "CT MILD", "CT MODERATE", "CT SEVERE",
+                         "MRI NO ", "MRI UNKNOWN", "MRI MILD", "MRI MODERATE", "MRI SEVERE")
+plot1 <- ggsurvplot(fit, 
+           xlab="time [years]", ylab="dementia-free probability", 
+           legend.labs=fitLabels,
+           legend=c(0.15, 0.38),
+           palette=palette,
+           break.time.by=1,
+           break.y.by=0.1,
+           ylim=c(0.4,1))$plot 
+
+rdf <- read.csv("kaiserDementiaReference.csv",header=FALSE)
+colNames <- rdf$V1
+rdf <- data.frame(rdf |> select("V2":"V11") |> t())
+names(rdf) <- colNames
+rdf$x <- rdf$x / 12.
+
+rdf <- rdf |> pivot_longer(cols=!x, names_to="severity", values_to="probability")
+
+plot1 +
+  geom_point(data=rdf, aes(x=factor(x), y=probability, color=severity)) 
+  #scale_x_discrete() +
+  #scale_color_manual(values = paletteN) + #, labels=fitLabels) +
+  #theme_bw()
 ```
 
