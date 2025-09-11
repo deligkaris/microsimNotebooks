@@ -1,0 +1,266 @@
+---
+title: "Kaiser Stroke and Dementia Validation"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE, echo=FALSE, warning=FALSE, results='hide'}
+knitr::opts_knit$set(root.dir = "/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/NOTEBOOKS/DATA")
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(survival)
+library(survminer)
+library(RColorBrewer)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+```
+
+## Goal
+
+This notebook performs analyses of the simulated Kaiser population, for several outcomes.
+The results from the simulation are compared with the relevant publications (Kent2021 and Kent2022).
+Note that the results from Kent2021 and Kent2022 were manually extracted from the published figures.
+
+## Stroke-free Probabilities (after 13 years of simulation)
+
+
+```{r}
+dfStrokeTimes <- read.csv("kaiserStrokeValidation13YrTimes.csv",header=TRUE)
+survival_object <- Surv(time = dfStrokeTimes$time, event = dfStrokeTimes$event)
+fitsbiwmh <- survfit(survival_object ~ sbiwmhGroup, data=dfStrokeTimes)
+dfStrokeProb <- data.frame(time = summary(fitsbiwmh)$time, surv = summary(fitsbiwmh)$surv, strata = summary(fitsbiwmh)$strata)
+dfStrokeProb$sbiwmh <- dfStrokeProb$strata
+dfStrokeProb <- dfStrokeProb |> 
+          mutate(
+            sbiwmh = str_replace_all(sbiwmh, "sbiwmhGroup=0", "no SBI or WMH"),
+            sbiwmh = str_replace_all(sbiwmh, "sbiwmhGroup=1", "only SBI"),
+            sbiwmh = str_replace_all(sbiwmh, "sbiwmhGroup=2", "only WMH"),
+            sbiwmh = str_replace_all(sbiwmh, "sbiwmhGroup=3", "SBI and WMH"),
+          ) |>
+        mutate(probability = surv) |>
+        select(time, probability, sbiwmh)
+dfStrokeProb$group <- rep("Microsim", nrow(dfStrokeProb))
+
+dfStrokeProbRef <- read.csv("kaiserStrokeValidation13YrProbSbiWmhRef.csv",header=TRUE)
+dfStrokeProbRef <- dfStrokeProbRef |> 
+                        pivot_longer(cols=!time, names_to="sbiwmh", values_to="probability") |>
+                        mutate(
+                          sbiwmh = str_replace_all(sbiwmh, "sbiNoWmhYes", "only WMH"),
+                          sbiwmh = str_replace_all(sbiwmh, "sbiYesWmhNo", "only SBI"),
+                          sbiwmh = str_replace_all(sbiwmh, "sbiYesWmhYes", "SBI and WMH"),
+                          sbiwmh = str_replace_all(sbiwmh, "sbiNoWmhNo", "no SBI or WMH"),
+                        )
+dfStrokeProbRef$group <- rep("Reference", nrow(dfStrokeProbRef))
+dfStrokeProbRef <- dfStrokeProbRef |> select(time, probability, sbiwmh, group)
+
+dfStrokeProbAll <- rbind(dfStrokeProb, dfStrokeProbRef)
+
+ggplot(data=dfStrokeProbAll) +
+  aes(x=factor(time), y=probability, color=group, shape=sbiwmh) +
+  #facet_wrap(~sbi, nrow=2, ncol=1) +
+  geom_point() +
+  scale_x_discrete(name="years") +
+  scale_y_continuous(name="stroke-free probability", limits=c(0,1)) +
+  theme_bw()
+
+```
+
+```{r}
+fitSeverity <- survfit(survival_object ~ severityGroup, data=dfStrokeTimes)
+
+dfStrokeProb <- data.frame(time = summary(fitSeverity)$time, surv = summary(fitSeverity)$surv, strata = summary(fitSeverity)$strata)
+dfStrokeProb$severity <- as.character(dfStrokeProb$strata)
+dfStrokeProb <- dfStrokeProb |> 
+          mutate(
+            severity = str_replace_all(severity, "severityGroup=0", "CTNo"),
+            severity = str_replace_all(severity, "severityGroup=1", "CTNonspecified"),
+            severity = str_replace_all(severity, "severityGroup=2", "CTMild"),
+            severity = str_replace_all(severity, "severityGroup=3", "CTModerate"),
+            severity = str_replace_all(severity, "severityGroup=4", "CTSevere"),
+            severity = str_replace_all(severity, "severityGroup=5", "MRNo"),
+            severity = str_replace_all(severity, "severityGroup=6", "MRNonspecified"),
+            severity = str_replace_all(severity, "severityGroup=7", "MRMild"),
+            severity = str_replace_all(severity, "severityGroup=8", "MRModerate"),
+            severity = str_replace_all(severity, "severityGroup=9", "MRSevere"),
+          ) |>
+        mutate(probability = surv) |>
+        select(time, probability, severity)
+dfStrokeProb$source <- rep("Microsim", nrow(dfStrokeProb))
+
+dfStrokeProbRef <- read.csv("kaiserStrokeValidation13YrProbWmhSeverityRef.csv",header=TRUE)
+dfStrokeProbRef <- rename(dfStrokeProbRef, 
+                          CTNo=ctNo, CTNonspecified=ctUnknown, CTMild=ctMild, CTModerate=ctModerate, CTSevere=ctSevere,
+                          MRNo=mrNo, MRNonspecified=mrUnknown, MRMild=mrMild, MRModerate=mrModerate, MRSevere=mrSevere)
+dfStrokeProbRef <- dfStrokeProbRef |> pivot_longer(cols=!time, names_to="severity", values_to="probability")
+dfStrokeProbRef$source <- rep("Reference", nrow(dfStrokeProbRef))
+dfStrokeProbRef <- dfStrokeProbRef |> select(time, probability, severity, source)
+
+dfStrokeProbAll <- rbind(dfStrokeProb, dfStrokeProbRef)
+
+ggplot(data=dfStrokeProbAll) +
+  aes(x=factor(time), y=probability, color=source) +
+  facet_wrap(~severity, nrow=3, ncol=4) +
+  geom_point() +
+  scale_x_discrete(name="years") +
+  scale_y_continuous(name="stroke-free probability") +
+  theme_bw()
+```
+
+## Dementia-free probabilities (after 13 years of simulation)
+
+### Stratified by SBI
+
+Now we will look at the dementia-free probability for two groups, one with SBI and one without SBI, for a period of 13 years.
+These simulation results are in good agreement with Figure 1 in Kent2022.
+Note that the Reference data points were manually extracted from Figure 1 Kent2022.
+
+```{r}
+dfDementiaTimes <- read.csv("kaiserDementiaValidation13YrTimes.csv",header=TRUE)
+survival_object <- Surv(time = dfDementiaTimes$time, event = dfDementiaTimes$event)
+fitSbi <- survfit(survival_object ~ sbi, data=dfDementiaTimes)
+
+dfDementiaProb <- data.frame(time = summary(fitSbi)$time, surv = summary(fitSbi)$surv, strata = summary(fitSbi)$strata)
+dfDementiaProb$sbi <- dfDementiaProb$strata
+dfDementiaProb <- dfDementiaProb |> 
+          mutate(
+            sbi = str_replace_all(sbi, "sbi=0", "without SBI"),
+            sbi = str_replace_all(sbi, "sbi=1", "with SBI"),
+          ) |>
+        mutate(probability = surv) |>
+        select(time, probability, sbi)
+dfDementiaProb$group <- rep("Microsim", nrow(dfDementiaProb))
+
+dfDementiaProbRef <- read.csv("kaiserDementiaValidation13YrProbSbiRef.csv",header=TRUE)
+dfDementiaProbRef <- dfDementiaProbRef |> 
+                        pivot_longer(cols=!time, names_to="sbi", values_to="probability") |>
+                        mutate(
+                          sbi = str_replace_all(sbi, "sbiNo", "without SBI"),
+                          sbi = str_replace_all(sbi, "sbiYes", "with SBI")
+                        )
+dfDementiaProbRef$group <- rep("Reference", nrow(dfDementiaProbRef))
+dfDementiaProbRef <- dfDementiaProbRef |> select(time, probability, sbi, group)
+
+dfDementiaProbAll <- rbind(dfDementiaProb, dfDementiaProbRef)
+
+ggplot(data=dfDementiaProbAll) +
+  aes(x=factor(time), y=probability, color=group, shape=sbi) +
+  #facet_wrap(~sbi, nrow=2, ncol=1) +
+  geom_point() +
+  scale_x_discrete(name="years") +
+  scale_y_continuous(name="dementia-free probability", limits=c(0,1)) +
+  theme_bw()
+```
+
+### Stratified by WMH
+
+Now we will look at the dementia-free probabilities for the Kaiser subgroups with and without WMH.
+
+```{r}
+fitWmh <- survfit(survival_object ~ wmh, data=dfDementiaTimes)
+
+dfDementiaProb <- data.frame(time = summary(fitWmh)$time, surv = summary(fitWmh)$surv, strata = summary(fitWmh)$strata)
+dfDementiaProb$wmh <- dfDementiaProb$strata
+dfDementiaProb <- dfDementiaProb |> 
+          mutate(
+            wmh = str_replace_all(wmh, "wmh=0", "without WMH"),
+            wmh = str_replace_all(wmh, "wmh=1", "with WMH"),
+          ) |>
+        mutate(probability = surv) |>
+        select(time, probability, wmh)
+dfDementiaProb$source <- rep("Microsim", nrow(dfDementiaProb))
+
+dfDementiaProbRef <- read.csv("kaiserDementiaValidation13YrProbWmhRef.csv",header=TRUE)
+dfDementiaProbRef <- dfDementiaProbRef |> 
+                        pivot_longer(cols=-c(time), names_to="wmh", values_to="probability") |>
+                        mutate(
+                          wmh = str_replace_all(wmh, "wmhNo", "without WMH"),
+                          wmh = str_replace_all(wmh, "wmhYes", "with WMH")
+                        )
+dfDementiaProbRef$source <- rep("Reference", nrow(dfDementiaProbRef))
+dfDementiaProbRef <- dfDementiaProbRef |> select(time, probability, wmh, source)
+
+dfDementiaProbAll <- rbind(dfDementiaProb, dfDementiaProbRef)
+
+ggplot(data=dfDementiaProbAll) +
+  aes(x=factor(time), y=probability, color=source, shape=wmh) +
+  #facet_wrap(~sbi, nrow=2, ncol=1) +
+  geom_point() +
+  scale_x_discrete(name="years") +
+  scale_y_continuous(name="dementia-free probability", limits=c(0,1)) +
+  theme_bw()
+
+```
+
+### Stratified by Modality and Severity
+
+Overall, the simulation reproduces qualitatively at least the results shown in Figure 2 in Kent2023.
+
+```{r}
+#setwd("/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/NOTEBOOKS/DATA")
+#df <- read.csv("kaiserDementiaValidation.csv",header=TRUE)
+#blues <- brewer.pal(4, "Blues")
+#oranges <- brewer.pal(4, "Oranges")
+#greens <- brewer.pal(5, "Greens")
+#ct <- append(blues, values=greens[3], after=1)
+#mri <- append(oranges, values=greens[5], after=1)
+#palette <- c(ct, mri)
+#survival_object <- Surv(time = df$time, event = df$event)
+fitScd <- survfit(survival_object ~ severityGroup, data=dfDementiaTimes)
+
+#fitLabels <- c("CT NO ", "CT UNKNOWN", "CT MILD", "CT MODERATE", "CT SEVERE",
+#                         "MRI NO ", "MRI UNKNOWN", "MRI MILD", "MRI MODERATE", "MRI SEVERE")
+#ggsurvplot(fit, 
+#           xlab="time [years]", ylab="dementia-free probability", 
+#           legend.labs=fitLabels,
+#           legend=c(0.15, 0.38),
+#           palette=palette,
+#           break.time.by=1,
+#           break.y.by=0.1,
+#           ylim=c(0.4,1))$plot 
+
+dfDementiaProb <- data.frame(time = summary(fitScd)$time, surv = summary(fitScd)$surv, strata = summary(fitScd)$strata)
+dfDementiaProb$severity <- as.character(dfDementiaProb$strata)
+dfDementiaProb <- dfDementiaProb |> 
+          mutate(
+            severity = str_replace_all(severity, "severityGroup=0", "CTNo"),
+            severity = str_replace_all(severity, "severityGroup=1", "CTNonspecified"),
+            severity = str_replace_all(severity, "severityGroup=2", "CTMild"),
+            severity = str_replace_all(severity, "severityGroup=3", "CTModerate"),
+            severity = str_replace_all(severity, "severityGroup=4", "CTSevere"),
+            severity = str_replace_all(severity, "severityGroup=5", "MRNo"),
+            severity = str_replace_all(severity, "severityGroup=6", "MRNonspecified"),
+            severity = str_replace_all(severity, "severityGroup=7", "MRMild"),
+            severity = str_replace_all(severity, "severityGroup=8", "MRModerate"),
+            severity = str_replace_all(severity, "severityGroup=9", "MRSevere"),
+          ) |>
+        mutate(probability = surv) |>
+        select(time, probability, severity)
+dfDementiaProb$source <- rep("Microsim", nrow(dfDementiaProb))
+
+dfDementiaProbRef <- read.csv("kaiserDementiaReference.csv",header=FALSE)
+colNames <- dfDementiaProbRef$V1
+dfDementiaProbRef <- data.frame(dfDementiaProbRef |> select("V2":"V11") |> t())
+names(dfDementiaProbRef) <- colNames
+dfDementiaProbRef$x <- dfDementiaProbRef$x / 12.
+dfDementiaProbRef <- dfDementiaProbRef |> pivot_longer(cols=!x, names_to="severity", values_to="probability")
+dfDementiaProbRef <- data.frame(dfDementiaProbRef)
+names(dfDementiaProbRef)[1] <- "time"
+dfDementiaProbRef$source <- rep("Reference", nrow(dfDementiaProbRef))
+dfDementiaProbRef <- dfDementiaProbRef |> select(time, probability, severity, source)
+
+dfDementiaProbAll <- rbind(dfDementiaProb, dfDementiaProbRef)
+
+ggplot(data=dfDementiaProbAll) +
+  aes(x=factor(time), y=probability, color=source) +
+  facet_wrap(~severity, nrow=3, ncol=4) +
+  geom_point() +
+  scale_x_discrete(name="years") +
+  scale_y_continuous(name="dementia-free probability") +
+  theme_bw()
+
+```
+
