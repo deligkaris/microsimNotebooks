@@ -1,0 +1,49 @@
+---
+title: "EpilepsyCog"
+output: html_document
+date: "2025-10-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## R Markdown
+
+```{r}
+df1 <- read.csv("/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/PAPERS/EpilepsyCog/Cumulative_baseline_hazard_20251003-1.csv")
+df50 <- read.csv("/Users/deligkaris.1/OneDrive - The Ohio State University Wexner Medical Center/MICROSIM/PAPERS/EpilepsyCog/Cumulative_baseline_hazard_20251003-50.csv")
+head(df1)
+head(df50)
+```
+
+```{r}
+ggplot(df50, aes(x=time, y=hazard)) +
+  geom_point()
+```
+
+```{r}
+ggplot(df1, aes(x=time, y=hazard)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=hazard-1.96*standard.error, ymax=hazard+1.96*standard.error),
+                #width=0.00002,
+                color = "darkred",
+                linewidth=0.02) +
+  scale_x_continuous(limits = c(0,7)) +
+  scale_y_continuous(limits = c(0, 0.013))
+```
+```{r}
+model <- lm(hazard ~ time + 0, data=df50|>filter(time<7))
+summary(model)
+```
+```{r}
+ggplot(df50, aes(x=time, y=hazard)) +
+  geom_point() +
+  geom_abline(intercept = 0, #coef(model)[1], 
+              slope= coef(model)[1], color = "darkred", linewidth=1) +
+  scale_x_continuous(limits = c(0,7)) +
+  scale_y_continuous(limits = c(0, 0.013))
+```
+
+
